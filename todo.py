@@ -48,26 +48,12 @@ class TodoItem:
         self.text = text
         self.item_id = 0
         self.done = False
-        
-    def set_item_id(self, item_id):
-        """Set an item id for interaction with todo items"""
-        self.item_id = item_id
-        
-    def set_done(self, done):
-        """Decide if an item is 'done'"""
-        self.done = done
     
     def pretty_print(self):
         """Format an item in an easy-to-read self-consistent manner."""
-        prepstr = str(self.item_id).ljust(3)
-        if(self.done):
-            prepstr += 'X'
-        else:
-            prepstr += ' '
-        datestr = self.date
-        if(datestr is None):
-            datestr = str.center('whenever',19)
-        return '%s %s -- %s' % (prepstr, datestr, self.text)
+        donestr = 'X' if self.done else ' '
+        datestr = 'whenever' if self.date is None else self.date
+        return '{0:<3d}{1:<s} {2:^19s} -- {3}'.format(self.item_id, donestr, datestr, self.text)
         
 class TodoSqlite:
     """Abstraction of a sqlite database containing todo items"""
@@ -80,8 +66,8 @@ class TodoSqlite:
         """Open, create the required table Notes in the database. Initialize queries"""
         self.open_file = None
         sqldb = sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES)
-        sqldb.execute(TodoSqlite.create_sql)
         sqldb.row_factory = sqlite3.Row
+        sqldb.execute(TodoSqlite.create_sql)
         self.open_file = sqldb
         
     def close(self):
@@ -97,8 +83,7 @@ class TodoSqlite:
             sqldb = self.open_file.cursor()
             #write the todo item
             sqldb.execute(TodoSqlite.insert_sql, [todo.date, todo.text])
-            itemid = sqldb.lastrowid
-            todo.set_item_id(itemid)
+            todo.itemid = sqldb.lastrowid
     
     def finish_todo(self, todoid):
         """Mark a todo item as complete."""
@@ -111,9 +96,9 @@ class TodoSqlite:
         def r2td(row):
             """Converts a SQLite Row object into a TodoItem"""
             item = TodoItem(row['time'], row['text'])
-            item.set_item_id(row['itemID'])
+            item.item_id = row['itemID']
             if(row['done'] == 1):
-                item.set_done(True)
+                item.done = True
             return item
             
         if self.open_file is not None:
@@ -168,7 +153,7 @@ def main():
         todofile.write_todo(parse_item(todo))
         todo = sys.stdin.readline()
     
-    todofile.close();
+    todofile.close()
 
 if(__name__ == "__main__"):
     sys.exit(main())
