@@ -32,7 +32,6 @@
 
 #TODO: Integrate with unix util 'at', notifications
 #TODO: Integrate with gcal
-#TODO: Split into 3 logical parts, each with its own execution: todo-list, todo-add, todo-modify.
 
 import sys, os
 import optparse
@@ -41,7 +40,7 @@ import datetime
 from dateutil.parser import parse
 
 def main():
-    """Run through the arguments, then loop through user input until we're out"""
+    """Run through the arguments, then run through user input until we're out"""
     optparser = optparse.OptionParser(
         usage='%prog [Options]',
         version='%prog 0.0')
@@ -104,10 +103,13 @@ def parse_items(todofile):
         """Parse an item from the following string: <date> -- <item>"""
         splittext = todotext.split('--')
         if(len(splittext) > 1):
-            date = parse(splittext[0])
-            note = ' '.join(splittext[1:])
-            return TodoItem(date, note.strip())
-        return TodoItem(None, splittext[0].strip())
+            try:
+                date = parse(splittext[0])
+                note = ' '.join(splittext[1:])
+                return TodoItem(date, note.strip())
+            except:
+                pass
+        return TodoItem(None, todotext.strip())
         
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
     todo = sys.stdin.readline()
