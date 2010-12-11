@@ -38,6 +38,7 @@ import optparse
 import sqlite3
 import datetime
 from dateutil.parser import parse
+import pynotify
 
 def main():
     """Run through the arguments, then run through user input until we're out"""
@@ -62,9 +63,13 @@ def main():
         help='Remove an item from storage and exit.')
     optparser.add_option('-a', '--add', default=False, action='store_true',
         help='Add an item to the todo list.')
+    optparser.add_option('--notify', type='int', default=0,
+        help='Display a notification that the item is due.')
     (options, arguments) = optparser.parse_args()
     
     with TodoSqlite(os.path.expanduser(options.database)) as todofile:
+        if options.notify is not 0:
+            notify_item(todofile, options.notify)
         if options.complete is not None:
             complete_items(todofile, options.complete)
         if options.remove is not None:
@@ -75,8 +80,6 @@ def main():
             if type(options.end_date) is str:
                 options.end_date = parse(options.end_date)
             list_items(todofile, options)
-        if options.remove is not None or options.complete is not None:
-            return
         if options.add:
             parse_items(todofile)
     
@@ -117,6 +120,14 @@ def parse_items(todofile):
         todofile.write_todo(parse_item(todo))
         todo = sys.stdin.readline()
 
+def notify_item(todofile, itemid):
+    try:
+        todo = todofile.get_todo(itemid)
+        n = pynotify.Notification("Todo Reminder",todo.text,"help-hint")
+        n.show()
+    except:
+        print "Could not find itemid %d" % itemid
+
 class TodoItem:
     """Contains the data used in constructing a Todo item."""
     def __init__(self, date, text):
@@ -149,6 +160,7 @@ WHERE
 '''
     finish_sql = 'UPDATE TodoItems SET done = 1 WHERE itemID = ?'
     delete_sql = 'DELETE FROM TodoItems WHERE itemID = ?'
+    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?'
     
     def __init__(self, path):
         """Open, create the required table Notes in the database.
@@ -199,23 +211,30 @@ WHERE
             sqldb = self.open_file.cursor()
             sqldb.execute(TodoSqlite.delete_sql, [todoid])
     
+    def get_todo(self, todoid):
+        """Select a single item from the database."""
+        if(self.open_file is not None):
+            sqldb = self.open_file.cursor()
+            sqldb.execute(TodoSqlite.get_sql, [todoid])
+            return self.__row_to_todo(sqldb.fetchone())
+            
     def list_items(self, options):
         """Returns a list of all todo items"""
-        def r2td(row):
-            """Converts a SQLite Row object into a TodoItem"""
-            item = TodoItem(row['time'], row['text'])
-            item.item_id = row['itemID']
-            if(row['done'] == 1):
-                item.done = True
-            return item
-            
         if self.open_file is not None:
             sqldb = self.open_file.cursor()
             sqldb.execute(TodoSqlite.select_sql, 
                 [options.start_date, options.end_date,
                 options.list_complete, options.hide_incomplete])
-            return [r2td(row) for row in sqldb.fetchall()]
+            return [self.__row_to_todo(row) for row in sqldb.fetchall()]
         return None
+    
+    def __row_to_todo(self, row):
+        """Converts a SQLite Row object into a TodoItem"""
+        item = TodoItem(row['time'], row['text'])
+        item.item_id = row['itemID']
+        if(row['done'] == 1):
+            item.done = True
+        return item
 
 if(__name__ == "__main__"):
     sys.exit(main())
