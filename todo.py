@@ -52,7 +52,7 @@ def main():
     optparser.add_option('--start_date', default=datetime.datetime.now(),
         nargs=1, help='Specify the starting date of the list.')
     optparser.add_option('--end_date', help='Specify the final listing date',
-        nargs=1, default=datetime.datetime.now() + datetime.timedelta(hours=5))
+        nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=1))
     optparser.add_option('--list_complete', default=False, 
         action='store_true', help='List completed todo items')
     optparser.add_option('--hide_incomplete', default=False, 
