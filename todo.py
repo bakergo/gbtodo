@@ -163,6 +163,9 @@ class TodoSqlite:
     create_sql = 'CREATE TABLE IF NOT EXISTS TodoItems(itemID INTEGER PRIMARY\
      KEY AUTOINCREMENT, time DATETIME, text TEXT, done INTEGER);'
     insert_sql = 'INSERT INTO TodoItems(time, text, done) VALUES (?,?,0)'
+    finish_sql = 'UPDATE TodoItems SET done = 1 WHERE itemID = ?'
+    delete_sql = 'DELETE FROM TodoItems WHERE itemID = ?'
+    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?'
     select_sql = '''
 SELECT TodoItems.itemID, TodoItems.time, TodoItems.text, TodoItems.done 
 FROM TodoItems
@@ -173,10 +176,7 @@ WHERE
     (TodoItems.done = 0 AND ? = 0))
 ORDER BY TodoItems.time, TodoItems.itemID
 '''
-    finish_sql = 'UPDATE TodoItems SET done = 1 WHERE itemID = ?'
-    delete_sql = 'DELETE FROM TodoItems WHERE itemID = ?'
-    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?'
-    
+
     def __init__(self, path):
         """Open, create the required table Notes in the database.
         Initialize queries"""
