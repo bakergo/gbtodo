@@ -44,7 +44,6 @@ except:
     print 'Error loading module dateutil.'
     print 'Dates can not be parsed until the module is loaded.'
 
-
 def main():
     """Run through the arguments, then run through user input until we're out"""
     optparser = optparse.OptionParser(
@@ -176,8 +175,7 @@ ORDER BY TodoItems.time, TodoItems.itemID
 '''
     finish_sql = 'UPDATE TodoItems SET done = 1 WHERE itemID = ?'
     delete_sql = 'DELETE FROM TodoItems WHERE itemID = ?'
-    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?\
-    ORDER BY TodoItems.time, TodoItems.itemID'
+    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?'
     
     def __init__(self, path):
         """Open, create the required table Notes in the database.
@@ -194,19 +192,10 @@ ORDER BY TodoItems.time, TodoItems.itemID
     def __exit__(self, exc_type, exc_value, traceback):
         if traceback is None:
             self.open_file.commit()
-            self.open_file.close()
-            self.open_file = None
         else: 
             self.open_file.rollback()
-            self.open_file.close()
-            self.open_file = None
-        
-    def close(self):
-        """Close & commit data"""
-        if(self.open_file is not None):
-            self.open_file.commit()
-            self.open_file.close()
-            self.open_file = None
+        self.open_file.close()
+        self.open_file = None
             
     def write_todo(self, todo):
         """Write a todo item to the database."""
