@@ -37,7 +37,6 @@ import sys, os
 import optparse
 import sqlite3
 import datetime
-import pynotify
 
 try:
     from dateutil.parser import parse
@@ -115,8 +114,10 @@ def list_items(todofile, options):
             item_id = '{0:<3d}'.format(item.item_id)
             datestr = '{0:^19s} --'.format(item.date)
             list_str.append(donestr)
-            if(options.list_id): list_str.append(item_id)
-            if(options.list_date): list_str.append(datestr)
+            if(options.list_id): 
+                list_str.append(item_id)
+            if(options.list_date): 
+                list_str.append(datestr)
             list_str.append(item.text)
             print ' '.join(list_str)
             
@@ -141,10 +142,13 @@ def parse_items(todofile):
         todo = sys.stdin.readline()
 
 def notify_item(todofile, itemid):
+    """Pop up a notification using the python notification library."""
     try:
+        import pynotify
         todo = todofile.get_todo(itemid)
-        n = pynotify.Notification("Todo Reminder",todo.text,"help-hint")
-        n.show()
+        notification = pynotify.Notification("Todo Reminder", 
+            todo.text, "help-hint")
+        notification.show()
     except:
         print "Could not find itemid %d" % itemid
 
