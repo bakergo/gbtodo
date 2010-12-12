@@ -37,8 +37,14 @@ import sys, os
 import optparse
 import sqlite3
 import datetime
-from dateutil.parser import parse
 import pynotify
+
+try:
+    from dateutil.parser import parse
+except:
+    print 'Error loading module dateutil.'
+    print 'Dates can not be parsed until the module is loaded.'
+
 
 def main():
     """Run through the arguments, then run through user input until we're out"""
@@ -47,6 +53,7 @@ def main():
         version='%prog 0.0')
     optparser.add_option('-d', '--database', default='~/.todo.db', 
         type='string', help='Specify the database file used.')
+        
     optparser.add_option('-l', '--list', default=False, action='store_true',
         help='List the current items.')
     optparser.add_option('--start_date', default=datetime.datetime.now(),
@@ -56,11 +63,16 @@ def main():
     optparser.add_option('--list_complete', default=False, 
         action='store_true', help='List completed todo items')
     optparser.add_option('--hide_incomplete', default=False, 
-        action='store_true', help='Do not list incomplete todo items')
+        action='store_true', help='Do not list incomplete todo items.')
     optparser.add_option('-c', '--complete', type='int', action='append', 
         help='Mark an item as complete and exit.')
+    optparser.add_option('--list_id', default=False, action='store_true',
+        help='Include the item ID in the output listing')
+    optparser.add_option('--list_date', default=False, action='store_true',
+        help='Include the due date in the output listing')
+        
     optparser.add_option('-r', '--remove', type='int', action='append',
-        help='Remove an item from storage and exit.')
+        help='Remove an item from the list and exit.')
     optparser.add_option('-a', '--add', default=False, action='store_true',
         help='Add an item to the todo list.')
     optparser.add_option('--notify', type='int', default=0,
@@ -96,9 +108,17 @@ def complete_items(todofile, items):
 def list_items(todofile, options):
     """List each todo item, one per each line."""
     items = todofile.list_items(options)
-    if(items is not None):
+    if items is not None:
         for item in items:
-            print item.pretty_print()
+            list_str = []
+            donestr = 'X' if item.done else ' '
+            item_id = '{0:<3d}'.format(item.item_id)
+            datestr = '{0:^19s} --'.format(item.date)
+            list_str.append(donestr)
+            if(options.list_id): list_str.append(item_id)
+            if(options.list_date): list_str.append(datestr)
+            list_str.append(item.text)
+            print ' '.join(list_str)
             
 def parse_items(todofile):
     """Parse user input from the todo file."""
@@ -137,13 +157,6 @@ class TodoItem:
         self.item_id = 0
         self.done = False
         
-    def pretty_print(self):
-        """Format an item in an easy-to-read self-consistent manner."""
-        donestr = 'X' if self.done else ' '
-        datestr = 'whenever' if self.date is None else self.date
-        return '{0:<3d}{1:<s} {2:^19s} -- {3}'.format(self.item_id, donestr,
-            datestr, self.text)
-        
 class TodoSqlite:
     """Abstraction of a sqlite database containing todo items"""
     create_sql = 'CREATE TABLE IF NOT EXISTS TodoItems(itemID INTEGER PRIMARY\
@@ -157,10 +170,12 @@ WHERE
     TodoItems.time IS NULL) AND 
 ((TodoItems.done = 1 AND ? = 1) OR 
     (TodoItems.done = 0 AND ? = 0))
+ORDER BY TodoItems.time, TodoItems.itemID
 '''
     finish_sql = 'UPDATE TodoItems SET done = 1 WHERE itemID = ?'
     delete_sql = 'DELETE FROM TodoItems WHERE itemID = ?'
-    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?'
+    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?\
+    ORDER BY TodoItems.time, TodoItems.itemID'
     
     def __init__(self, path):
         """Open, create the required table Notes in the database.
