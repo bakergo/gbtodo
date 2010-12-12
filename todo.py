@@ -52,7 +52,6 @@ def main():
         version='%prog 0.0')
     optparser.add_option('-d', '--database', default='~/.todo.db', 
         type='string', help='Specify the database file used.')
-        
     optparser.add_option('-l', '--list', default=False, action='store_true',
         help='List the current items.')
     optparser.add_option('--start_date', default=datetime.datetime.now(),
@@ -69,7 +68,6 @@ def main():
         help='Include the item ID in the output listing')
     optparser.add_option('--list_date', default=False, action='store_true',
         help='Include the due date in the output listing')
-        
     optparser.add_option('-r', '--remove', type='int', action='append',
         help='Remove an item from the list and exit.')
     optparser.add_option('-a', '--add', default=False, action='store_true',
@@ -92,7 +90,7 @@ def main():
                 options.end_date = parse(options.end_date)
             list_items(todofile, options)
         if options.add:
-            parse_items(todofile)
+            add_items(todofile)
     
 def remove_items(todofile, items):
     """Remove several items from the database altogether."""
@@ -121,7 +119,7 @@ def list_items(todofile, options):
             list_str.append(item.text)
             print ' '.join(list_str)
             
-def parse_items(todofile):
+def add_items(todofile):
     """Parse user input from the todo file."""
     def parse_item(todotext):
         """Parse an item from the following string: <date> -- <item>"""
