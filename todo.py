@@ -118,7 +118,7 @@ def notify_items(todofile, items):
         for item in find_items(todofile, items):
             show_notification(item)
     except:
-        print 'Could not display the notification'
+        print 'Could not display the notification.'
         
 def list_items(todofile, options):
     """List each todo item, one per each line."""
@@ -127,7 +127,7 @@ def list_items(todofile, options):
         return ((item.done and options.list_complete) or 
             (not item.done and not options.hide_incomplete))
     
-    for item in [x for x in todofile.fetch_items if filt(x)]:
+    for item in [x for x in todofile.fetch_items() if filt(x)]:
         list_str = []
         donestr = 'X' if item.done else ' '
         itemid = '{0:<3d}'.format(item.itemid)
@@ -154,11 +154,12 @@ def add_items(todofile):
                 pass
         return TodoItem(date=None, text=todotext.strip(), itemid=0, 
             done=False)
+            
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
-    todo = sys.stdin.readline()
-    while (len(todo) != 0):
-        todofile.write_todo(parse_item(todo))
-        todo = sys.stdin.readline()
+    todotext = sys.stdin.readline()
+    while (len(todotext) != 0):
+        todofile.write_todo(parse_item(todotext))
+        todotext = sys.stdin.readline()
 
 #Acts as the DAO for TodoManager's ORM
 TodoItem = collections.namedtuple('TodoItem', 'date text itemid done')
@@ -173,14 +174,12 @@ class TodoManager:
         done INTEGER);
      '''
     insert_sql = '''
-        INSERT INTO TodoItems(time, text, done) VALUES (
-        :date,:text,:done)
+        INSERT INTO TodoItems(time, text, done)
+        VALUES (:date, :text, :done)
     '''
     update_sql = '''
         UPDATE TodoItems 
-        SET time = :date,
-            text = :text, 
-            done = :done, 
+        SET time = :date, text = :text, done = :done
         WHERE itemID = :itemid
     '''
     delete_sql = 'DELETE FROM TodoItems WHERE itemID = :itemid'
@@ -211,8 +210,7 @@ class TodoManager:
             
     def __execsql(self, sql, seq):
         """ Wrapper around executemany for line length. """
-        if len(seq) > 0:
-            self.sqldb.executemany(sql, [x._asdict() for x in seq])
+        return self.sqldb.executemany(sql, [x._asdict() for x in seq])
         
     def write_todo(self, todo):
         """ Insert a new todo item in the database. """
@@ -234,6 +232,7 @@ class TodoManager:
             """ Convert a Row into a TodoItem """
             return TodoItem(itemid=row['itemID'], date=row['time'],
                 text=row['text'], done=True if row['done'] else False)
+
         rows = self.sqldb.execute(TodoManager.select_sql).fetchall()
         self.items = [row_to_todo(row) for row in rows]
         return self.items
