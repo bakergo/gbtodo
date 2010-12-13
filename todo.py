@@ -5,7 +5,7 @@
 #       Redistribution and use in source and binary forms, with or without
 #       modification, are permitted provided that the following conditions are
 #       met:
-#       
+#
 #       * Redistributions of source code must retain the above copyright
 #         notice, this list of conditions and the following disclaimer.
 #       * Redistributions in binary form must reproduce the above
@@ -15,7 +15,7 @@
 #       * Neither the name of the  nor the names of its
 #         contributors may be used to endorse or promote products derived from
 #         this software without specific prior written permission.
-#       
+#
 #       THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 #       "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 #       LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -50,7 +50,7 @@ def main():
     optparser = optparse.OptionParser(
         usage='%prog [Options]',
         version='%prog 0.0')
-    optparser.add_option('-d', '--database', default='~/.todo.db', 
+    optparser.add_option('-d', '--database', default='~/.todo.db',
         type='string', help='Specify the database file used.')
     optparser.add_option('-l', '--list', default=False, action='store_true',
         help='List the current items.')
@@ -58,11 +58,11 @@ def main():
         nargs=1, help='Specify the starting date of the list.')
     optparser.add_option('--end_date', help='Specify the final listing date',
         nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=1))
-    optparser.add_option('--list_complete', default=False, 
+    optparser.add_option('--list_complete', default=False,
         action='store_true', help='List completed todo items')
-    optparser.add_option('--hide_incomplete', default=False, 
+    optparser.add_option('--hide_incomplete', default=False,
         action='store_true', help='Do not list incomplete todo items.')
-    optparser.add_option('-c', '--complete', type='int', action='append', 
+    optparser.add_option('-c', '--complete', type='int', action='append',
         help='Mark an item as complete and exit.')
     optparser.add_option('--list_id', default=False, action='store_true',
         help='Include the item ID in the output listing')
@@ -75,7 +75,7 @@ def main():
     optparser.add_option('--notify', type='int', action='append',
         help='Display a notification that the item is due.')
     (options, arguments) = optparser.parse_args()
-    
+
     with TodoManager(os.path.expanduser(options.database)) as todofile:
         if options.notify is not None:
             notify_items(todofile, options.notify)
@@ -100,7 +100,7 @@ def remove_items(todofile, items):
     """Remove several items from the database altogether."""
     for item in find_items(todofile, items):
         todofile.remove_todo(item)
-        
+
 def complete_items(todofile, items):
     """Complete several items."""
     for item in find_items(todofile, items):
@@ -119,27 +119,27 @@ def notify_items(todofile, items):
             show_notification(item)
     except:
         print 'Could not display the notification.'
-        
+
 def list_items(todofile, options):
     """List each todo item, one per each line."""
     def filt(item):
         """Filter function based on options."""
-        return ((item.done and options.list_complete) or 
+        return ((item.done and options.list_complete) or
             (not item.done and not options.hide_incomplete))
-    
+
     for item in [x for x in todofile.fetch_items() if filt(x)]:
         list_str = []
         donestr = 'X' if item.done else ' '
         itemid = '{0:<3d}'.format(item.itemid)
         datestr = '{0:^19s} --'.format(item.date)
         list_str.append(donestr)
-        if(options.list_id): 
+        if(options.list_id):
             list_str.append(itemid)
-        if(options.list_date): 
+        if(options.list_date):
             list_str.append(datestr)
         list_str.append(item.text)
         print ' '.join(list_str)
-            
+
 def add_items(todofile):
     """Parse user input from the todo file."""
     def parse_item(todotext):
@@ -152,9 +152,9 @@ def add_items(todofile):
                 return TodoItem(date=date, text=text, itemid=0, done=False)
             except:
                 pass
-        return TodoItem(date=None, text=todotext.strip(), itemid=0, 
+        return TodoItem(date=None, text=todotext.strip(), itemid=0,
             done=False)
-            
+
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
     todotext = sys.stdin.readline()
     while (len(todotext) != 0):
@@ -168,9 +168,9 @@ class TodoManager:
     """ Sits atop the Todo DB and manages application interaction with it. """
     create_sql = '''
     CREATE TABLE IF NOT EXISTS TodoItems(
-        itemID INTEGER PRIMARY KEY AUTOINCREMENT, 
-        time DATETIME, 
-        text TEXT, 
+        itemID INTEGER PRIMARY KEY AUTOINCREMENT,
+        time DATETIME,
+        text TEXT,
         done INTEGER);
      '''
     insert_sql = '''
@@ -178,7 +178,7 @@ class TodoManager:
         VALUES (:date, :text, :done)
     '''
     update_sql = '''
-        UPDATE TodoItems 
+        UPDATE TodoItems
         SET time = :date, text = :text, done = :done
         WHERE itemID = :itemid
     '''
@@ -186,7 +186,7 @@ class TodoManager:
     select_sql = 'SELECT itemID, time, text, done FROM TodoItems'
 
     def __init__(self, dbpath):
-        self.sqldb = sqlite3.connect(dbpath, 
+        self.sqldb = sqlite3.connect(dbpath,
             detect_types=sqlite3.PARSE_DECLTYPES)
         self.sqldb.row_factory = sqlite3.Row
         self.sqldb.execute(TodoManager.create_sql)
@@ -195,35 +195,35 @@ class TodoManager:
         self.updated_items = []
         self.new_items = []
         self.deleted_items = []
-    
+
     def __enter__(self):
         return self
-        
+
     def __exit__(self, exc_type, exc_value, traceback):
         if traceback is None:
             self.__execsql(TodoManager.delete_sql, self.deleted_items)
             self.__execsql(TodoManager.update_sql, self.updated_items)
             self.__execsql(TodoManager.insert_sql, self.new_items)
             self.sqldb.commit()
-        else: 
+        else:
             self.sqldb.rollback()
-            
+
     def __execsql(self, sql, seq):
         """ Wrapper around executemany for line length. """
         return self.sqldb.executemany(sql, [x._asdict() for x in seq])
-        
+
     def write_todo(self, todo):
         """ Insert a new todo item in the database. """
         self.new_items.append(todo)
-    
+
     def finish_todo(self, todo):
         """ Mark an item as completed in the database. """
         self.updated_items.append(todo._replace(done=True))
-    
+
     def remove_todo(self, todo):
         """ Remove a todo from the database. """
         self.deleted_items.append(todo)
-        
+
     def fetch_items(self):
         """ Fetch the set of inserted items """
         if self.items is not None:
