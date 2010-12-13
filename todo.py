@@ -37,6 +37,7 @@ import sys, os
 import optparse
 import sqlite3
 import datetime
+import collections
 
 try:
     from dateutil.parser import parse
@@ -71,13 +72,13 @@ def main():
         help='Remove an item from the list and exit.')
     optparser.add_option('-a', '--add', default=False, action='store_true',
         help='Add an item to the todo list.')
-    optparser.add_option('--notify', type='int', default=0,
+    optparser.add_option('--notify', type='int', action='append',
         help='Display a notification that the item is due.')
     (options, arguments) = optparser.parse_args()
     
-    with TodoSqlite(os.path.expanduser(options.database)) as todofile:
-        if options.notify is not 0:
-            notify_item(todofile, options.notify)
+    with TodoManager(os.path.expanduser(options.database)) as todofile:
+        if options.notify is not None:
+            notify_items(todofile, options.notify)
         if options.complete is not None:
             complete_items(todofile, options.complete)
         if options.remove is not None:
@@ -90,33 +91,54 @@ def main():
             list_items(todofile, options)
         if options.add:
             add_items(todofile)
-    
+
+def find_items(todofile, items):
+    """Return a list of items sharing itemid in items. """
+    return [x for x in todofile.fetch_items() if x.itemid in items]
+
 def remove_items(todofile, items):
     """Remove several items from the database altogether."""
-    for item in items:
+    for item in find_items(todofile, items):
         todofile.remove_todo(item)
         
 def complete_items(todofile, items):
-    """complete several items."""
-    for item in items:
+    """Complete several items."""
+    for item in find_items(todofile, items):
         todofile.finish_todo(item)
 
+def notify_items(todofile, items):
+    """Pop up a notification using the python notification library."""
+    try:
+        import pynotify
+        def show_notification(item):
+            """ Display a notification for the given item to the user. """
+            notification = pynotify.Notification('Todo Reminder', item.text,
+                'help-hint')
+            notification.show()
+        for item in find_items(todofile, items):
+            show_notification(item)
+    except:
+        print 'Could not display the notification'
+        
 def list_items(todofile, options):
     """List each todo item, one per each line."""
-    items = todofile.list_items(options)
-    if items is not None:
-        for item in items:
-            list_str = []
-            donestr = 'X' if item.done else ' '
-            item_id = '{0:<3d}'.format(item.item_id)
-            datestr = '{0:^19s} --'.format(item.date)
-            list_str.append(donestr)
-            if(options.list_id): 
-                list_str.append(item_id)
-            if(options.list_date): 
-                list_str.append(datestr)
-            list_str.append(item.text)
-            print ' '.join(list_str)
+    def filt(item):
+        """Filter function based on options."""
+        return ((item.done and options.list_complete) or 
+            (not item.done and not options.hide_incomplete))
+    
+    for item in [x for x in todofile.fetch_items if filt(x)]:
+        list_str = []
+        donestr = 'X' if item.done else ' '
+        itemid = '{0:<3d}'.format(item.itemid)
+        datestr = '{0:^19s} --'.format(item.date)
+        list_str.append(donestr)
+        if(options.list_id): 
+            list_str.append(itemid)
+        if(options.list_date): 
+            list_str.append(datestr)
+        list_str.append(item.text)
+        print ' '.join(list_str)
             
 def add_items(todofile):
     """Parse user input from the todo file."""
@@ -126,121 +148,95 @@ def add_items(todofile):
         if(len(splittext) > 1):
             try:
                 date = parse(splittext[0])
-                note = ' '.join(splittext[1:])
-                return TodoItem(date, note.strip())
+                text = ' '.join(splittext[1:]).strip()
+                return TodoItem(date=date, text=text, itemid=0, done=False)
             except:
                 pass
-        return TodoItem(None, todotext.strip())
-        
+        return TodoItem(date=None, text=todotext.strip(), itemid=0, 
+            done=False)
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
     todo = sys.stdin.readline()
     while (len(todo) != 0):
         todofile.write_todo(parse_item(todo))
         todo = sys.stdin.readline()
 
-def notify_item(todofile, itemid):
-    """Pop up a notification using the python notification library."""
-    try:
-        import pynotify
-        todo = todofile.get_todo(itemid)
-        notification = pynotify.Notification("Todo Reminder", 
-            todo.text, "help-hint")
-        notification.show()
-    except:
-        print "Could not find itemid %d" % itemid
+#Acts as the DAO for TodoManager's ORM
+TodoItem = collections.namedtuple('TodoItem', 'date text itemid done')
 
-class TodoItem:
-    """Contains the data used in constructing a Todo item."""
-    def __init__(self, date, text):
-        """Initialize the instance variables"""
-        self.date = date
-        self.text = text
-        self.item_id = 0
-        self.done = False
-        
-class TodoSqlite:
-    """Abstraction of a sqlite database containing todo items"""
-    create_sql = 'CREATE TABLE IF NOT EXISTS TodoItems(itemID INTEGER PRIMARY\
-     KEY AUTOINCREMENT, time DATETIME, text TEXT, done INTEGER);'
-    insert_sql = 'INSERT INTO TodoItems(time, text, done) VALUES (?,?,0)'
-    finish_sql = 'UPDATE TodoItems SET done = 1 WHERE itemID = ?'
-    delete_sql = 'DELETE FROM TodoItems WHERE itemID = ?'
-    get_sql = 'SELECT itemID, time, text, done FROM TodoItems WHERE itemID = ?'
-    select_sql = '''
-SELECT TodoItems.itemID, TodoItems.time, TodoItems.text, TodoItems.done 
-FROM TodoItems
-WHERE
-((TodoItems.time > ? AND TodoItems.time < ?) OR 
-    TodoItems.time IS NULL) AND 
-((TodoItems.done = 1 AND ? = 1) OR 
-    (TodoItems.done = 0 AND ? = 0))
-ORDER BY TodoItems.time, TodoItems.itemID
-'''
+class TodoManager:
+    """ Sits atop the Todo DB and manages application interaction with it. """
+    create_sql = '''
+    CREATE TABLE IF NOT EXISTS TodoItems(
+        itemID INTEGER PRIMARY KEY AUTOINCREMENT, 
+        time DATETIME, 
+        text TEXT, 
+        done INTEGER);
+     '''
+    insert_sql = '''
+        INSERT INTO TodoItems(time, text, done) VALUES (
+        :date,:text,:done)
+    '''
+    update_sql = '''
+        UPDATE TodoItems 
+        SET time = :date,
+            text = :text, 
+            done = :done, 
+        WHERE itemID = :itemid
+    '''
+    delete_sql = 'DELETE FROM TodoItems WHERE itemID = :itemid'
+    select_sql = 'SELECT itemID, time, text, done FROM TodoItems'
 
-    def __init__(self, path):
-        """Open, create the required table Notes in the database.
-        Initialize queries"""
-        self.open_file = None
-        sqldb = sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES)
-        sqldb.row_factory = sqlite3.Row
-        sqldb.execute(TodoSqlite.create_sql)
-        self.open_file = sqldb
-        
+    def __init__(self, dbpath):
+        self.sqldb = sqlite3.connect(dbpath, 
+            detect_types=sqlite3.PARSE_DECLTYPES)
+        self.sqldb.row_factory = sqlite3.Row
+        self.sqldb.execute(TodoManager.create_sql)
+        self.sqldb.commit()
+        self.items = None
+        self.updated_items = []
+        self.new_items = []
+        self.deleted_items = []
+    
     def __enter__(self):
         return self
         
     def __exit__(self, exc_type, exc_value, traceback):
         if traceback is None:
-            self.open_file.commit()
+            self.__execsql(TodoManager.delete_sql, self.deleted_items)
+            self.__execsql(TodoManager.update_sql, self.updated_items)
+            self.__execsql(TodoManager.insert_sql, self.new_items)
+            self.sqldb.commit()
         else: 
-            self.open_file.rollback()
-        self.open_file.close()
-        self.open_file = None
+            self.sqldb.rollback()
             
+    def __execsql(self, sql, seq):
+        """ Wrapper around executemany for line length. """
+        if len(seq) > 0:
+            self.sqldb.executemany(sql, [x._asdict() for x in seq])
+        
     def write_todo(self, todo):
-        """Write a todo item to the database."""
-        if self.open_file is not None:
-            sqldb = self.open_file.cursor()
-            #write the todo item
-            sqldb.execute(TodoSqlite.insert_sql, [todo.date, todo.text])
-            todo.itemid = sqldb.lastrowid
+        """ Insert a new todo item in the database. """
+        self.new_items.append(todo)
     
-    def finish_todo(self, todoid):
-        """Mark a todo item as complete."""
-        if(self.open_file is not None):
-            sqldb = self.open_file.cursor()
-            sqldb.execute(TodoSqlite.finish_sql, [todoid])
-            
-    def remove_todo(self, todoid):
-        """Remove a todo item from the database."""
-        if(self.open_file is not None):
-            sqldb = self.open_file.cursor()
-            sqldb.execute(TodoSqlite.delete_sql, [todoid])
+    def finish_todo(self, todo):
+        """ Mark an item as completed in the database. """
+        self.updated_items.append(todo._replace(done=True))
     
-    def get_todo(self, todoid):
-        """Select a single item from the database."""
-        if(self.open_file is not None):
-            sqldb = self.open_file.cursor()
-            sqldb.execute(TodoSqlite.get_sql, [todoid])
-            return self.__row_to_todo(sqldb.fetchone())
-            
-    def list_items(self, options):
-        """Returns a list of all todo items"""
-        if self.open_file is not None:
-            sqldb = self.open_file.cursor()
-            sqldb.execute(TodoSqlite.select_sql, 
-                [options.start_date, options.end_date,
-                options.list_complete, options.hide_incomplete])
-            return [self.__row_to_todo(row) for row in sqldb.fetchall()]
-        return None
-    
-    def __row_to_todo(self, row):
-        """Converts a SQLite Row object into a TodoItem"""
-        item = TodoItem(row['time'], row['text'])
-        item.item_id = row['itemID']
-        if(row['done'] == 1):
-            item.done = True
-        return item
+    def remove_todo(self, todo):
+        """ Remove a todo from the database. """
+        self.deleted_items.append(todo)
+        
+    def fetch_items(self):
+        """ Fetch the set of inserted items """
+        if self.items is not None:
+            return self.items
+        def row_to_todo(row):
+            """ Convert a Row into a TodoItem """
+            return TodoItem(itemid=row['itemID'], date=row['time'],
+                text=row['text'], done=True if row['done'] else False)
+        rows = self.sqldb.execute(TodoManager.select_sql).fetchall()
+        self.items = [row_to_todo(row) for row in rows]
+        return self.items
 
 if(__name__ == "__main__"):
     sys.exit(main())
