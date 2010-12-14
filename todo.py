@@ -225,10 +225,9 @@ class TodoManager:
 
     def fetch_items(self):
         """ Fetch the set of inserted items """
-        if self.items is not None:
-            return self.items
-        rows = self.sqldb.execute(TodoManager.select_sql).fetchall()
-        self.items = [TodoItem._make(row) for row in rows]
+        if self.items is None:
+            rows = self.sqldb.execute(TodoManager.select_sql).fetchall()
+            self.items = [TodoItem._make(row) for row in rows]
         return self.items
 
 if(__name__ == "__main__"):
