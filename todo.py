@@ -120,23 +120,22 @@ def notify_items(todofile, items):
     except:
         print 'Could not display the notification.'
 
-def list_items(todofile, options):
+def list_items(todofile, opt):
     """List each todo item, one per each line."""
     def filt(item):
         """Filter function based on options."""
-        return ((item.done and options.list_complete) or
-            (not item.done and not options.hide_incomplete))
+        return (((item.done and opt.list_complete) or
+            (not item.done and not opt.hide_incomplete)) and
+            ((item.time is None) or
+            (opt.start_date < item.time < opt.end_date)))
 
     for item in [x for x in todofile.fetch_items() if filt(x)]:
         list_str = []
-        donestr = 'X' if item.done else ' '
-        itemid = '{0:<3d}'.format(item.itemid)
-        datestr = '{0:^19s} --'.format(item.date)
-        list_str.append(donestr)
-        if(options.list_id):
-            list_str.append(itemid)
-        if(options.list_date):
-            list_str.append(datestr)
+        list_str.append('X' if item.done else ' ')
+        if(opt.list_id):
+            list_str.append('{0:<3d}'.format(item.itemid))
+        if(opt.list_date and item.time is not None):
+            list_str.append(item.time.strftime('%c') + ' --')
         list_str.append(item.text)
         print ' '.join(list_str)
 
@@ -149,10 +148,11 @@ def add_items(todofile):
             try:
                 date = parse(splittext[0])
                 text = ' '.join(splittext[1:]).strip()
-                return TodoItem(date=date, text=text, itemid=0, done=False)
+                return TodoItem(time=date, text=text, itemid=0, done=False)
             except:
                 pass
-        return TodoItem(date=None, text=todotext.strip(), itemid=0,
+
+        return TodoItem(time=None, text=todotext.strip(), itemid=0,
             done=False)
 
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
@@ -162,33 +162,32 @@ def add_items(todofile):
         todotext = sys.stdin.readline()
 
 #Acts as the DAO for TodoManager's ORM
-TodoItem = collections.namedtuple('TodoItem', 'date text itemid done')
+TodoItem = collections.namedtuple('TodoItem', 'itemid time text done')
 
 class TodoManager:
     """ Sits atop the Todo DB and manages application interaction with it. """
     create_sql = '''
     CREATE TABLE IF NOT EXISTS TodoItems(
-        itemID INTEGER PRIMARY KEY AUTOINCREMENT,
-        time DATETIME,
+        itemid INTEGER PRIMARY KEY AUTOINCREMENT,
+        time TIMESTAMP,
         text TEXT,
-        done INTEGER);
+        done BOOLEAN);
      '''
     insert_sql = '''
         INSERT INTO TodoItems(time, text, done)
-        VALUES (:date, :text, :done)
+        VALUES (:time, :text, :done)
     '''
     update_sql = '''
         UPDATE TodoItems
-        SET time = :date, text = :text, done = :done
-        WHERE itemID = :itemid
+        SET time = :time, text = :text, done = :done
+        WHERE itemid = :itemid
     '''
-    delete_sql = 'DELETE FROM TodoItems WHERE itemID = :itemid'
-    select_sql = 'SELECT itemID, time, text, done FROM TodoItems'
+    delete_sql = 'DELETE FROM TodoItems WHERE itemid = :itemid'
+    select_sql = 'SELECT itemid, time, text, done FROM TodoItems'
 
     def __init__(self, dbpath):
         self.sqldb = sqlite3.connect(dbpath,
-            detect_types=sqlite3.PARSE_DECLTYPES)
-        self.sqldb.row_factory = sqlite3.Row
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
         self.sqldb.execute(TodoManager.create_sql)
         self.sqldb.commit()
         self.items = None
@@ -228,13 +227,8 @@ class TodoManager:
         """ Fetch the set of inserted items """
         if self.items is not None:
             return self.items
-        def row_to_todo(row):
-            """ Convert a Row into a TodoItem """
-            return TodoItem(itemid=row['itemID'], date=row['time'],
-                text=row['text'], done=True if row['done'] else False)
-
         rows = self.sqldb.execute(TodoManager.select_sql).fetchall()
-        self.items = [row_to_todo(row) for row in rows]
+        self.items = [TodoItem._make(row) for row in rows]
         return self.items
 
 if(__name__ == "__main__"):
