@@ -146,12 +146,12 @@ def add_items(todofile, items):
 def interactive(todofile):
     (tmp, path) = tempfile.mkstemp(suffix='.tmp', prefix='todo-')
     with open(path, 'w') as tmpfile:
+        print >> tmpfile
         print >> tmpfile , '# todos are formatted as DATE -- TODO'
         print >> tmpfile , '# the date field is optional'
         print >> tmpfile , '# Lines starting with # are ignored.'
-        print >> tmpfile
 
-    subprocess.call([os.environ['EDITOR'], path])
+    subprocess.call(['editor', path])
     with open(path) as tmpfile:
         add_items(todofile, tmpfile.readlines())
     os.remove(path)
@@ -224,15 +224,18 @@ class TodoManager:
     def write_todo(self, todo):
         """ Insert a new todo item in the database. """
         if todo != None:
+            print 'added "%s"' % todo.text
             self.new_items.append(todo)
 
     def finish_todo(self, todo):
         """ Mark an item as completed in the database. """
         self.updated_items.append(todo._replace(done=True))
+        print 'completed "%s"' % todo.text
 
     def remove_todo(self, todo):
         """ Remove a todo from the database. """
         self.deleted_items.append(todo)
+        print 'removed "%s"' % todo.text
 
     def fetch_items(self):
         """ Fetch the set of inserted items """
