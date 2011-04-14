@@ -46,30 +46,35 @@ except:
 def main():
     """Run through the arguments, then run through user input until we're out"""
     optparser = optparse.OptionParser(
-        usage='%prog [Options] [--list] [regex]',
+        usage='%prog [Options]',
         version='%prog 0.0')
     optparser.add_option('-d', '--database', default='~/.todo.db',
         type='string', help='Specify the database file used.')
-    optparser.add_option('-l', '--list', default=False, action='store_true',
+    optparser.add_option('-l', '--list', action='store_true', default=False,
         help='List the current items.')
+    optparser.add_option('-s', '--search', action='append', metavar='REGEX',
+        help='Search for an item based on a regex')
     optparser.add_option('--start-date', default=datetime.datetime.now(),
-        nargs=1, help='Specify the starting date of the list.')
+        nargs=1, help='Specify the starting date of the list.', metavar='DATE')
     optparser.add_option('--end-date', help='Specify the final listing date',
-        nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=1))
+        nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=5),
+        metavar='DATE')
     optparser.add_option('--list-complete', default=False,
         action='store_true', help='List completed todo items')
     optparser.add_option('--hide-incomplete', default=False,
         action='store_true', help='Do not list incomplete todo items.')
     optparser.add_option('-c', '--complete', type='int', action='append',
-        help='Mark an item as complete and exit.')
+        help='Mark an item as complete and exit.', metavar='ID')
     optparser.add_option('--list-id', default=False, action='store_true',
         help='Include the item ID in the output listing')
     optparser.add_option('--list-date', default=False, action='store_true',
         help='Include the due date in the output listing')
     optparser.add_option('-r', '--remove', type='int', action='append',
-        help='Remove an item from the list and exit.')
-    optparser.add_option('-a', '--add', default=False, action='store_true',
-        help='Add an item to the todo list.')
+        help='Remove an item from the list and exit.', metavar='ID')
+    optparser.add_option('-i', '--interactive', default=False,
+        action='store_true', help='Add items interactively')
+    optparser.add_option('-a', '--add', action='append',
+        help='Add an item to the todo list.', metavar='NOTE')
     (options, arguments) = optparser.parse_args()
 
     with TodoManager(os.path.expanduser(options.database)) as todofile:
@@ -77,14 +82,22 @@ def main():
             complete_items(todofile, options.complete)
         if options.remove is not None:
             remove_items(todofile, options.remove)
-        if options.list:
+        if options.search is not None:
+            options.list = True
+        else:
+            options.search = []
+        #TODO make this cleaner
+        if (options.list or options.list_complete or options.list_id or
+            options.list_date):
             if type(options.start_date) is str:
                 options.start_date = parse(options.start_date)
             if type(options.end_date) is str:
                 options.end_date = parse(options.end_date)
-            list_items(todofile, options, arguments)
-        if options.add:
-            add_items(todofile)
+            list_items(todofile, options, options.search)
+        if options.add is not None:
+            add_items(todofile, options.add)
+        if options.interactive:
+            interactive(todofile)
 
 def find_items(todofile, items):
     """Return a list of items sharing itemid in items. """
@@ -122,23 +135,30 @@ def list_items(todofile, opt, args):
         list_str.append(item.text)
         print ' '.join(list_str)
 
-def add_items(todofile):
+def add_items(todofile, items):
     """Parse user input from the todo file."""
-    def parse_item(todotext):
-        """Parse an item from the following string: <date> -- <item>"""
-        matchobj = re.match(r'^(.*)--(.*)$', todotext)
-        if(matchobj != None):
-            date = matchobj.group(1).strip()
-            text = matchobj.group(2).strip()
-            return TodoItem(time=date, text=text, itemid=0, done=False)
+    if(items is not None and len(items) > 0):
+        for item in items:
+            todofile.write_todo(parse_item(item))
 
-        return TodoItem(time=None, text=todotext.strip(), itemid=0, done=False)
-
+def interactive(todo):
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
     todotext = sys.stdin.readline()
     while (len(todotext) != 0):
         todofile.write_todo(parse_item(todotext))
         todotext = sys.stdin.readline()
+
+def parse_item(todotext):
+    """Parse an item from the following string: <date> -- <item>"""
+    matchobj = re.match(r'^(.*)--(.*)$', todotext)
+    if(matchobj != None):
+        try:
+            date = parse(matchobj.group(1).strip())
+            text = matchobj.group(2).strip()
+            return TodoItem(time=date, text=text, itemid=0, done=False)
+        except:
+            pass
+    return TodoItem(time=None, text=todotext.strip(), itemid=0, done=False)
 
 #Acts as the DAO for TodoManager's ORM
 TodoItem = collections.namedtuple('TodoItem', 'itemid time text done')
