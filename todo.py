@@ -30,14 +30,12 @@
 
 """No bullshit way to add items to a todo list."""
 
-#TODO: Integrate with unix util 'at', notifications
-#TODO: Integrate with gcal
-
 import sys, os
 import optparse
 import sqlite3
 import datetime
 import collections
+import re
 
 try:
     from dateutil.parser import parse
@@ -54,31 +52,27 @@ def main():
         type='string', help='Specify the database file used.')
     optparser.add_option('-l', '--list', default=False, action='store_true',
         help='List the current items.')
-    optparser.add_option('--start_date', default=datetime.datetime.now(),
+    optparser.add_option('--start-date', default=datetime.datetime.now(),
         nargs=1, help='Specify the starting date of the list.')
-    optparser.add_option('--end_date', help='Specify the final listing date',
+    optparser.add_option('--end-date', help='Specify the final listing date',
         nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=1))
-    optparser.add_option('--list_complete', default=False,
+    optparser.add_option('--list-complete', default=False,
         action='store_true', help='List completed todo items')
-    optparser.add_option('--hide_incomplete', default=False,
+    optparser.add_option('--hide-incomplete', default=False,
         action='store_true', help='Do not list incomplete todo items.')
     optparser.add_option('-c', '--complete', type='int', action='append',
         help='Mark an item as complete and exit.')
-    optparser.add_option('--list_id', default=False, action='store_true',
+    optparser.add_option('--list-id', default=False, action='store_true',
         help='Include the item ID in the output listing')
-    optparser.add_option('--list_date', default=False, action='store_true',
+    optparser.add_option('--list-date', default=False, action='store_true',
         help='Include the due date in the output listing')
     optparser.add_option('-r', '--remove', type='int', action='append',
         help='Remove an item from the list and exit.')
     optparser.add_option('-a', '--add', default=False, action='store_true',
         help='Add an item to the todo list.')
-    optparser.add_option('--notify', type='int', action='append',
-        help='Display a notification that the item is due.')
     (options, arguments) = optparser.parse_args()
 
     with TodoManager(os.path.expanduser(options.database)) as todofile:
-        if options.notify is not None:
-            notify_items(todofile, options.notify)
         if options.complete is not None:
             complete_items(todofile, options.complete)
         if options.remove is not None:
@@ -106,20 +100,6 @@ def complete_items(todofile, items):
     for item in find_items(todofile, items):
         todofile.finish_todo(item)
 
-def notify_items(todofile, items):
-    """Pop up a notification using the python notification library."""
-    try:
-        import pynotify
-        def show_notification(item):
-            """ Display a notification for the given item to the user. """
-            notification = pynotify.Notification('Todo Reminder', item.text,
-                'help-hint')
-            notification.show()
-        for item in find_items(todofile, items):
-            show_notification(item)
-    except:
-        print 'Could not display the notification.'
-
 def list_items(todofile, opt):
     """List each todo item, one per each line."""
     def filt(item):
@@ -143,17 +123,13 @@ def add_items(todofile):
     """Parse user input from the todo file."""
     def parse_item(todotext):
         """Parse an item from the following string: <date> -- <item>"""
-        splittext = todotext.split('--')
-        if(len(splittext) > 1):
-            try:
-                date = parse(splittext[0])
-                text = ' '.join(splittext[1:]).strip()
-                return TodoItem(time=date, text=text, itemid=0, done=False)
-            except:
-                pass
+        matchobj = re.match(r'^(.*)--(.*)$', todotext)
+        if(matchobj != None):
+            date = matchobj.group(1).strip()
+            text = matchobj.group(2).strip()
+            return TodoItem(time=date, text=text, itemid=0, done=False)
 
-        return TodoItem(time=None, text=todotext.strip(), itemid=0,
-            done=False)
+        return TodoItem(time=None, text=todotext.strip(), itemid=0, done=False)
 
     print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
     todotext = sys.stdin.readline()
