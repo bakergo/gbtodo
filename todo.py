@@ -46,7 +46,7 @@ except:
 def main():
     """Run through the arguments, then run through user input until we're out"""
     optparser = optparse.OptionParser(
-        usage='%prog [Options]',
+        usage='%prog [Options] [--list] [regex]',
         version='%prog 0.0')
     optparser.add_option('-d', '--database', default='~/.todo.db',
         type='string', help='Specify the database file used.')
@@ -82,7 +82,7 @@ def main():
                 options.start_date = parse(options.start_date)
             if type(options.end_date) is str:
                 options.end_date = parse(options.end_date)
-            list_items(todofile, options)
+            list_items(todofile, options, arguments)
         if options.add:
             add_items(todofile)
 
@@ -100,14 +100,17 @@ def complete_items(todofile, items):
     for item in find_items(todofile, items):
         todofile.finish_todo(item)
 
-def list_items(todofile, opt):
+def list_items(todofile, opt, args):
     """List each todo item, one per each line."""
     def filt(item):
         """Filter function based on options."""
-        return (((item.done and opt.list_complete) or
+        result = (((item.done and opt.list_complete) or
             (not item.done and not opt.hide_incomplete)) and
             ((item.time is None) or
             (opt.start_date < item.time < opt.end_date)))
+        for arg in args:
+            result = result and (re.search(arg, item.text) != None)
+        return result
 
     for item in [x for x in todofile.fetch_items() if filt(x)]:
         list_str = []
