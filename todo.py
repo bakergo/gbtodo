@@ -36,6 +36,8 @@ import sqlite3
 import datetime
 import collections
 import re
+import tempfile
+import subprocess
 
 try:
     from dateutil.parser import parse
@@ -141,16 +143,25 @@ def add_items(todofile, items):
         for item in items:
             todofile.write_todo(parse_item(item))
 
-def interactive(todo):
-    print "Recording todo items. Format: <date> -- <todo>. ^D to quit."
-    todotext = sys.stdin.readline()
-    while (len(todotext) != 0):
-        todofile.write_todo(parse_item(todotext))
-        todotext = sys.stdin.readline()
+def interactive(todofile):
+    (tmp, path) = tempfile.mkstemp(suffix='.tmp', prefix='todo-')
+    with open(path, 'w') as tmpfile:
+        print >> tmpfile , '# todos are formatted as DATE -- TODO'
+        print >> tmpfile , '# the date field is optional'
+        print >> tmpfile , '# Lines starting with # are ignored.'
+        print >> tmpfile
+
+    subprocess.call([os.environ['EDITOR'], path])
+    with open(path) as tmpfile:
+        add_items(todofile, tmpfile.readlines())
+    os.remove(path)
 
 def parse_item(todotext):
     """Parse an item from the following string: <date> -- <item>"""
     matchobj = re.match(r'^(.*)--(.*)$', todotext)
+    ignore = re.search(r'^((#(.*))|(\s+))$', todotext)
+    if ignore != None:
+        return None
     if(matchobj != None):
         try:
             date = parse(matchobj.group(1).strip())
@@ -212,7 +223,8 @@ class TodoManager:
 
     def write_todo(self, todo):
         """ Insert a new todo item in the database. """
-        self.new_items.append(todo)
+        if todo != None:
+            self.new_items.append(todo)
 
     def finish_todo(self, todo):
         """ Mark an item as completed in the database. """
