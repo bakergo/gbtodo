@@ -41,9 +41,8 @@ import subprocess
 
 try:
     from dateutil.parser import parse
-except:
-    print 'Error loading module dateutil.'
-    print 'Dates can not be parsed until the module is loaded.'
+except ImportError:
+    print "Can't load python-dateutil (do you have it installed?)"
 
 def main():
     """Run through the arguments, then run through user input until we're out"""
@@ -168,7 +167,8 @@ def parse_item(todotext):
             date = parse(matchobj.group(1).strip())
             text = matchobj.group(2).strip()
             return TodoItem(time=date, text=text, itemid=0, done=False)
-        except:
+        except ValueError:
+            # Can't parse the date. Ignore it.
             pass
     return TodoItem(time=None, text=todotext.strip(), itemid=0, done=False)
 
