@@ -144,11 +144,12 @@ def add_items(todofile, items):
             todofile.write_todo(parse_item(item))
 
 def interactive(todofile):
+    """ Opens an interactive text editor to edit multiple items """
     (tmp, path) = tempfile.mkstemp(suffix='.tmp', prefix='todo-')
     with open(path, 'w') as tmpfile:
         print >> tmpfile
-        print >> tmpfile , '# todos are formatted as DATE -- TODO'
-        print >> tmpfile , '# the date field is optional'
+        print >> tmpfile , '# Todo items should be formed as <date> -- <todo>'
+        print >> tmpfile , '# The date field is optional.'
         print >> tmpfile , '# Lines starting with # are ignored.'
 
     subprocess.call(['editor', path])
