@@ -50,32 +50,35 @@ def main():
         usage='%prog [Options]',
         version='%prog 0.1')
     optparser.add_option('-d', '--database', default='~/.todo.db',
-        type='string', help='Specify the database file used.')
+        type='string', help='Specify the database file used')
+    optparser.add_option('-a', '--add', action='append',
+        help='Add a task to the todo list', metavar='TASK')
+    optparser.add_option('-i', '--interactive', default=False,
+        action='store_true', help='Add tasks interactively')
+    optparser.add_option('-r', '--remove', type='int', action='append',
+        help='Remove a task from the list', metavar='ID')
+    optparser.add_option('-c', '--complete', type='int', action='append',
+        help='Mark a task as complete', metavar='ID')
     optparser.add_option('-l', '--list', action='store_true', default=False,
-        help='List the current items.')
+        help='List the current tasks')
     optparser.add_option('-s', '--search', action='append', metavar='REGEX',
-        help='Search for an item based on a regex')
+        help='Show only tasks matching a given regular expression')
+    optparser.add_option('--list-id', default=False, action='store_true',
+        help='Include the task ID in the output listing')
+    optparser.add_option('--list-date', default=False, action='store_true',
+        help='Include the due date in the output listing')
+    optparser.add_option('--list-complete', default=False,
+        action='store_true', help='List completed todo tasks')
+    optparser.add_option('--hide-incomplete', default=False,
+        action='store_true', help='Do not list incomplete tasks')
     optparser.add_option('--start-date', default=datetime.datetime.now(),
-        nargs=1, help='Specify the starting date of the list.', metavar='DATE')
+        nargs=1, help='Specify the starting date of the list', metavar='DATE')
     optparser.add_option('--end-date', help='Specify the final listing date',
         nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=5),
         metavar='DATE')
-    optparser.add_option('--list-complete', default=False,
-        action='store_true', help='List completed todo items')
-    optparser.add_option('--hide-incomplete', default=False,
-        action='store_true', help='Do not list incomplete todo items.')
-    optparser.add_option('-c', '--complete', type='int', action='append',
-        help='Mark an item as complete and exit.', metavar='ID')
-    optparser.add_option('--list-id', default=False, action='store_true',
-        help='Include the item ID in the output listing')
-    optparser.add_option('--list-date', default=False, action='store_true',
-        help='Include the due date in the output listing')
-    optparser.add_option('-r', '--remove', type='int', action='append',
-        help='Remove an item from the list and exit.', metavar='ID')
-    optparser.add_option('-i', '--interactive', default=False,
-        action='store_true', help='Add items interactively')
-    optparser.add_option('-a', '--add', action='append',
-        help='Add an item to the todo list.', metavar='NOTE')
+    if(len(sys.argv) == 1):
+        optparser.print_help()
+        return 0
     (options, arguments) = optparser.parse_args()
 
     with TodoManager(os.path.expanduser(options.database)) as todofile:
