@@ -147,17 +147,17 @@ def add_items(todofile, items):
 
 def interactive(todofile):
     """ Opens an interactive text editor to edit multiple items """
-    (tmp, path) = tempfile.mkstemp(suffix='.tmp', prefix='todo-')
-    with open(path, 'w') as tmpfile:
-        print >> tmpfile
-        print >> tmpfile , '# Todo items should be formed as <date> -- <todo>'
-        print >> tmpfile , '# The date field is optional.'
-        print >> tmpfile , '# Lines starting with # are ignored.'
-
-    subprocess.call(['editor', path])
-    with open(path) as tmpfile:
-        add_items(todofile, tmpfile.readlines())
-    os.remove(path)
+    tmpfile = tempfile.NamedTemporaryFile(suffix='.txt', prefix='todo-',
+            delete=False)
+    print >> tmpfile
+    print >> tmpfile , '# Todo items should be formed as <date> -- <todo>'
+    print >> tmpfile , '# The date field is optional.'
+    print >> tmpfile , '# Lines starting with # are ignored.'
+    tmpfile.close()
+    subprocess.call(['editor', tmpfile.name])
+    with open(tmpfile.name) as writtenfile:
+        add_items(todofile, writtenfile.readlines())
+    os.remove(tmpfile.name)
 
 def parse_item(todotext):
     """Parse an item from the following string: <date> -- <item>"""
