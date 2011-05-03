@@ -95,18 +95,14 @@ def main():
         if options.interactive:
             interactive(todofile)
 
-def find_items(todofile, items):
-    """Return a list of items sharing itemid in items. """
-    return [x for x in todofile.fetch_items() if x.itemid in items]
-
 def remove_items(todofile, items):
     """Remove several items from the database altogether."""
-    for item in find_items(todofile, items):
+    for item in filter(lambda x: x.itemid in items, todofile.fetch_items()):
         todofile.remove_todo(item)
 
 def complete_items(todofile, items):
     """Complete several items."""
-    for item in find_items(todofile, items):
+    for item in filter(lambda x: x.itemid in items, todofile.fetch_items()):
         todofile.finish_todo(item)
 
 def list_items(todofile, opt, args):
@@ -121,7 +117,7 @@ def list_items(todofile, opt, args):
             result = result and (re.search(arg, item.text) != None)
         return result
 
-    for item in [x for x in todofile.fetch_items() if filt(x)]:
+    for item in filter(filt, todofile.fetch_items()):
         list_str = []
         list_str.append('X' if item.done else ' ')
         if(opt.list_id):
