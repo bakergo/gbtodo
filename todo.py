@@ -72,19 +72,18 @@ def main():
         optparser.print_help()
         return 0
     (options, arguments) = optparser.parse_args()
+    # Implied options
+    options.list = (options.list or options.list_id or options.list_date or
+            options.list_complete or (options.search is not None))
 
     with TodoManager(os.path.expanduser(options.database)) as todofile:
         if options.complete is not None:
             complete_items(todofile, options.complete)
         if options.remove is not None:
             remove_items(todofile, options.remove)
-        if options.search is not None:
-            options.list = True
-        else:
+        if options.search is None:
             options.search = []
-        #TODO make this cleaner
-        if (options.list or options.list_complete or options.list_id or
-            options.list_date):
+        if options.list:
             if type(options.start_date) is str:
                 options.start_date = parse(options.start_date)
             if type(options.end_date) is str:
