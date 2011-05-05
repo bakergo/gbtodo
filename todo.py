@@ -35,6 +35,9 @@ try:
     from dateutil.parser import parse
 except ImportError:
     print "Can't load python-dateutil (do you have it installed?)"
+    print "Dates must be of format MM/DD/YY"
+    def parse(date):
+        return datetime.datetime.strptime(date, "%m/%d/%y")
 
 def main():
     """Run through the arguments, then run through user input until we're out"""
