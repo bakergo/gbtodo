@@ -43,7 +43,7 @@ def main():
     """Run through the arguments, then run through user input until we're out"""
     optparser = optparse.OptionParser(
         usage='%prog [Options]',
-        version='%prog 0.1')
+        version='%prog 0.2')
     optparser.add_option('-d', '--database', default='~/.todo.db',
         type='string', help='Specify the database file used')
     optparser.add_option('-a', '--add', action='append',
