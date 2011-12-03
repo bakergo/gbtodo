@@ -114,8 +114,8 @@ def list_items(todofile, opt, args):
         result = (((item.done and opt.list_complete) or
             (not item.done and not opt.hide_incomplete)) and
             ((item.time is None) or
-            (opt.start_date is None and item.time < opt.end_date) or
-            (opt.start_date < item.time < opt.end_date)))
+            ((opt.start_date is None or opt.start_date < item.time) and
+                item.time < opt.end_date)))
         for arg in args:
             result = result and (re.search(arg, item.text) != None)
         return result
