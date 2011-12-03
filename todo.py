@@ -120,8 +120,13 @@ def list_items(todofile, opt, args):
         return result
 
     for item in filter(filt, todofile.fetch_items()):
-        list_str = []
-        list_str.append('X' if item.done else ' ')
+        list_str = ['']
+        if (item.done):
+            list_str.append('X')
+        elif (item.time is not None and item.time < datetime.datetime.now()):
+            list_str.append('!')
+        else:
+            list_str.append('*')
         if(opt.list_id):
             list_str.append('{0:<3d}'.format(item.itemid))
         if(opt.list_date and item.time is not None):
