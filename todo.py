@@ -66,7 +66,7 @@ def main():
         action='store_true', help='List completed todo tasks')
     optparser.add_option('--hide-incomplete', default=False,
         action='store_true', help='Do not list incomplete tasks')
-    optparser.add_option('--start-date', default=datetime.datetime.now(),
+    optparser.add_option('--start-date', default=None,
         nargs=1, help='Specify the starting date of the list', metavar='DATE')
     optparser.add_option('--end-date', help='Specify the final listing date',
         nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=5),
@@ -114,6 +114,7 @@ def list_items(todofile, opt, args):
         result = (((item.done and opt.list_complete) or
             (not item.done and not opt.hide_incomplete)) and
             ((item.time is None) or
+            (opt.start_date is None and item.time < opt.end_date) or
             (opt.start_date < item.time < opt.end_date)))
         for arg in args:
             result = result and (re.search(arg, item.text) != None)
