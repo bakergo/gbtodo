@@ -71,13 +71,11 @@ def main():
     optparser.add_option('--end-date', help='Specify the final listing date',
         nargs=1, default=datetime.datetime.now() + datetime.timedelta(days=5),
         metavar='DATE')
-    if(len(sys.argv) == 1):
-        optparser.print_help()
-        return 0
     (options, arguments) = optparser.parse_args()
     # Implied options
     options.list = (options.list or options.list_id or options.list_date or
-            options.list_complete or (options.search is not None))
+            options.list_complete or (options.search is not None) or
+            len(sys.argv) == 1)
 
     with TodoManager(os.path.expanduser(options.database)) as todofile:
         if options.complete is not None:
