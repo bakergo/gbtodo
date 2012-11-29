@@ -155,19 +155,19 @@ def interactive(todofile):
 
 def parse_item(todotext):
     """Parse an item from the following string: <date> -- <item>"""
-    matchobj = re.match(r'^(.*)--(.*)$', todotext)
-    ignore = re.search(r'^((#(.*))|(\s+))$', todotext)
-    if ignore != None:
+    if (len(todotext) == 0 or todotext[0] == '#'):
         return None
-    if(matchobj != None):
+    date, sep, text = todotext.partition('--')
+    if (len(text) == 0):
+        text = date
+        date = None
+    else:
         try:
-            date = parse(matchobj.group(1).strip())
-            text = matchobj.group(2).strip()
-            return TodoItem(time=date, text=text, itemid=0, done=False)
+            date = parse(date)
         except ValueError:
             # Can't parse the date. Ignore it.
             pass
-    return TodoItem(time=None, text=todotext.strip(), itemid=0, done=False)
+    return TodoItem(time=date, text=text.strip(), itemid=0, done=False)
 
 #Acts as the DAO for TodoManager's ORM
 TodoItem = collections.namedtuple('TodoItem', 'itemid time text done')
