@@ -155,7 +155,7 @@ def interactive(todofile):
 
 def parse_item(todotext):
     """Parse an item from the following string: <date> -- <item>"""
-    if (len(todotext) == 0 or todotext[0] == '#'):
+    if (len(todotext.strip()) == 0 or todotext[0] == '#'):
         return None
     date, sep, text = todotext.partition('--')
     if (len(text) == 0):
