@@ -148,7 +148,7 @@ def interactive(todofile):
     print >> tmpfile , '# The date field is optional.'
     print >> tmpfile , '# Lines starting with # are ignored.'
     tmpfile.close()
-    subprocess.call(['editor', tmpfile.name])
+    subprocess.call(['sensible-editor', tmpfile.name])
     with open(tmpfile.name) as writtenfile:
         add_items(todofile, writtenfile.readlines())
     os.remove(tmpfile.name)
